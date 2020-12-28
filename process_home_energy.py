@@ -5,10 +5,13 @@
 ## Input Files:              files named in the following format: YYYYMMDD_hourly_kwh.csv
 ## Output Files:             path/outputCSVname, path/appended_raws
 ## Assumptions/Dependencies: all input CSV files are located in the path dir.  Output file is also saved in the path dir.
+## Revisions:
+#            28DEC2020 add min max date ranges in output text and summary statistics after processing
 ##################################################
 
 import os, glob
 import pandas as pd
+
 
 #loop through a directory and process all files
 def import_all(path,outputCSVname):
@@ -24,41 +27,62 @@ def import_all(path,outputCSVname):
     df_merged.rename(columns = {'Unnamed: 0':'date'}, inplace = True)
     
     #restructure from wide to time series data
-    df2=pd.melt(df_merged, id_vars=['date'], var_name='time', value_name='kwh')
+    out_df=pd.melt(df_merged, id_vars=['date'], var_name='time', value_name='kwh')
     
     #################################
     #   create datetime variables   #
     #################################
     
     #datetime
-    df2['datetime']=pd.to_datetime(df2['date']+' '+df2['time'],format="%m/%d/%Y %I:%M %p")
+    out_df['datetime']=pd.to_datetime(out_df['date']+' '+out_df['time'],format="%m/%d/%Y %I:%M %p")
     
     #date, time
-    df2['date']=pd.to_datetime(df2['date']).dt.date
-    df2['time']=pd.to_datetime(df2['time']).dt.time
+    out_df['date']=pd.to_datetime(out_df['date']).dt.date
+    out_df['time']=pd.to_datetime(out_df['time']).dt.time
     
     #hour
-    df2['hour']=df2['datetime'].dt.hour
+    out_df['hour']=out_df['datetime'].dt.hour
     
     
     #################################
     #set datetime as index and sort #
     #################################
-    df2.set_index(keys='datetime',inplace=True)
-    df2.sort_values('datetime', inplace=True)
+    out_df.set_index(keys='datetime',inplace=True)
+    out_df.sort_values('datetime', inplace=True)
     
     #################################
     #       plot                    #      
     #################################
-    df2['kwh'].plot()
+    out_df['kwh'].plot()
     
     
     #################################
     #     export                    #      
     #################################
-    df2.to_csv(path+'/' + outputCSVname, index = True)
+    out_df.to_csv(path+'/' + outputCSVname, index = True)
     
-    print('Import all complete.  Output CSV written to '+ path +'/' + outputCSVname)
     
-import_all(path='C:/Users/ashmui/Downloads/Home_Energy',outputCSVname='finalHomeEnergy.csv')
+    
+    #determine date range
+    min_date=out_df["date"].min()
+    max_date=out_df["date"].max()
+    
+    print('Import all complete for date ranges ' + str(min_date) + ' to ' + str(max_date) + '.  Output CSV written to '+ path +'/' + outputCSVname)
+    
+    return out_df
+    
+output_dataframe = import_all(path='C:/Users/ashmui/Downloads/Home_Energy',outputCSVname='finalHomeEnergy.csv')
 
+output_dataframe['kwh'].plot()
+
+#################################
+# calculate summary statistics  #
+#################################
+
+#summary statistics for kwh for entire dataset
+print('summary statistics for kwh for entire dataset')
+output_dataframe["kwh"].describe()
+
+#summary statistics for kwh by day
+print('summary statistics for kwh by day')
+output_dataframe[["date","kwh"]].groupby("date").describe()
